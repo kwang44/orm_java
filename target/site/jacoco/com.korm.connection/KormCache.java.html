@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>KormCache.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ORM_Kevin_Wang</a> &gt; <a href="index.source.html" class="el_package">com.korm.connection</a> &gt; <span class="el_source">KormCache.java</span></div><h1>KormCache.java</h1><pre class="source lang-java linenums">package com.korm.connection;
+
+import org.ehcache.Cache;
+import org.ehcache.CacheManager;
+import org.ehcache.config.CacheConfiguration;
+import org.ehcache.config.builders.CacheConfigurationBuilder;
+import org.ehcache.config.builders.CacheManagerBuilder;
+import org.ehcache.config.builders.ExpiryPolicyBuilder;
+import org.ehcache.config.builders.ResourcePoolsBuilder;
+
+import java.time.Duration;
+
+public class KormCache {
+<span class="nc" id="L14">    private static KormCache kormCache = null;</span>
+<span class="nc" id="L15">    private static CacheManager cacheManager = null;</span>
+
+<span class="nc" id="L17">    private KormCache(){</span>
+<span class="nc" id="L18">        cacheManager = CacheManagerBuilder.newCacheManagerBuilder().build();</span>
+<span class="nc" id="L19">        cacheManager.init();</span>
+<span class="nc" id="L20">    };</span>
+
+    public static KormCache getInstance() {
+<span class="nc bnc" id="L23" title="All 2 branches missed.">        if (kormCache == null) {</span>
+<span class="nc" id="L24">            kormCache = new KormCache();</span>
+        }
+<span class="nc" id="L26">        return kormCache;</span>
+    }
+
+    public Cache getCache(String tableName, Class key, Class value) {
+<span class="nc" id="L30">        CacheConfiguration cacheConfiguration = CacheConfigurationBuilder.newCacheConfigurationBuilder(key, value,</span>
+<span class="nc" id="L31">                ResourcePoolsBuilder.heap(100))</span>
+<span class="nc" id="L32">                .withExpiry(ExpiryPolicyBuilder.timeToIdleExpiration(Duration.ofSeconds(120)))</span>
+<span class="nc" id="L33">                .build();</span>
+
+<span class="nc" id="L35">        Cache cache = cacheManager.createCache(tableName, cacheConfiguration);</span>
+<span class="nc" id="L36">        return cache;</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

@@ -1,0 +1,9 @@
+com\korm\exception\IncorrectKormAnnotationException.class
+com\korm\connection\KormConnectable.class
+com\korm\connection\KormSession.class
+com\korm\annotations\Column.class
+com\korm\connection\KormCache.class
+com\korm\annotations\Table.class
+com\korm\exception\MapperException.class
+com\korm\manager\KormObjectMapper.class
+com\korm\connection\KormConnectionManager.class

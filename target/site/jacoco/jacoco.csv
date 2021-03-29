@@ -1,0 +1,7 @@
+GROUP,PACKAGE,CLASS,INSTRUCTION_MISSED,INSTRUCTION_COVERED,BRANCH_MISSED,BRANCH_COVERED,LINE_MISSED,LINE_COVERED,COMPLEXITY_MISSED,COMPLEXITY_COVERED,METHOD_MISSED,METHOD_COVERED
+ORM_Kevin_Wang,com.korm.manager,KormObjectMapper,111,953,26,68,12,144,24,48,1,24
+ORM_Kevin_Wang,com.korm.connection,KormSession,19,26,0,0,7,11,4,5,4,5
+ORM_Kevin_Wang,com.korm.connection,KormConnectionManager,0,29,0,0,0,9,0,3,0,3
+ORM_Kevin_Wang,com.korm.connection,KormCache,39,0,2,0,15,0,5,0,4,0
+ORM_Kevin_Wang,com.korm.exception,IncorrectKormAnnotationException,4,0,0,0,2,0,1,0,1,0
+ORM_Kevin_Wang,com.korm.exception,MapperException,0,4,0,0,0,2,0,1,0,1

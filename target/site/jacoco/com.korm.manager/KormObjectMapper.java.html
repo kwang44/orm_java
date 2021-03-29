@@ -1,0 +1,353 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>KormObjectMapper.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ORM_Kevin_Wang</a> &gt; <a href="index.source.html" class="el_package">com.korm.manager</a> &gt; <span class="el_source">KormObjectMapper.java</span></div><h1>KormObjectMapper.java</h1><pre class="source lang-java linenums">package com.korm.manager;
+
+import com.korm.annotations.Column;
+import com.korm.connection.KormCache;
+import com.korm.connection.KormConnectable;
+import com.korm.connection.KormConnectionManager;
+import com.korm.exception.IncorrectKormAnnotationException;
+import com.korm.annotations.Table;
+import com.korm.exception.MapperException;
+import org.ehcache.Cache;
+import org.ehcache.CacheManager;
+import org.ehcache.config.builders.CacheManagerBuilder;
+import org.javatuples.Triplet;
+
+import java.lang.reflect.Field;
+import java.sql.*;
+import java.util.*;
+
+public class KormObjectMapper {
+
+    //Class we're working on
+    Class clazz;
+    //name of the table
+    String tableName;
+    //Contain all the columns of a table with it's name, field, and class respectively.
+    Triplet&lt;String, Field, Class&gt;[] columns;
+    //Contain only the primary key
+    Triplet&lt;String, Field, Class&gt;[] primaryKeys;
+
+    KormConnectable kormConnectable;
+    Cache cache;
+    CacheManager cacheManager;
+
+    /**
+     * This parse the class with the proper annotations
+     * @param clazz Class to be worked on
+     * @param kormConnectable Connection interface with getConnection() method
+     */
+
+<span class="fc" id="L40">    public KormObjectMapper(Class clazz, KormConnectable kormConnectable) {</span>
+
+<span class="fc bfc" id="L42" title="All 2 branches covered.">        if (clazz == null)</span>
+<span class="fc" id="L43">            throw new MapperException(&quot;null class detected&quot;);</span>
+<span class="fc bfc" id="L44" title="All 2 branches covered.">        if (kormConnectable == null)</span>
+<span class="fc" id="L45">            throw new MapperException(&quot;null KornConnectable not allowed&quot;);</span>
+
+<span class="fc" id="L47">        this.clazz = clazz;</span>
+<span class="fc" id="L48">        this.kormConnectable = kormConnectable;</span>
+
+<span class="fc" id="L50">        Table table = (Table) clazz.getAnnotation(Table.class);</span>
+<span class="pc bpc" id="L51" title="1 of 2 branches missed.">        if (table == null)</span>
+<span class="nc" id="L52">            throw new IncorrectKormAnnotationException(&quot;No table annotation found&quot;);</span>
+
+<span class="fc" id="L54">        this.tableName = table.name();</span>
+
+<span class="fc" id="L56">        ArrayList&lt;Triplet&lt;String, Field, Class&gt;&gt; columnsArrayList = new ArrayList&lt;Triplet&lt;String, Field, Class&gt;&gt;();</span>
+<span class="fc" id="L57">        ArrayList&lt;Triplet&lt;String, Field, Class&gt;&gt; primaryKeysArrayList = new ArrayList&lt;Triplet&lt;String, Field, Class&gt;&gt;();</span>
+
+<span class="fc bfc" id="L59" title="All 2 branches covered.">        for (Field field : clazz.getDeclaredFields()) {</span>
+<span class="fc" id="L60">            Column column = field.getAnnotation(Column.class);</span>
+<span class="fc bfc" id="L61" title="All 2 branches covered.">            if (column == null)</span>
+<span class="fc" id="L62">                continue;</span>
+
+<span class="fc" id="L64">            Class dataType = field.getType();</span>
+
+<span class="pc bpc" id="L66" title="1 of 4 branches missed.">            if (dataType.equals(Integer.TYPE) || dataType.equals(Integer.class)) {</span>
+<span class="fc" id="L67">                dataType = Integer.class;</span>
+            }
+<span class="fc bfc" id="L69" title="All 2 branches covered.">            else if (dataType.equals(String.class)) {</span>
+<span class="fc" id="L70">                dataType = String.class;</span>
+            }
+<span class="pc bpc" id="L72" title="3 of 4 branches missed.">            else if (dataType.equals(Double.TYPE) || dataType.equals(Double.class)) {</span>
+<span class="fc" id="L73">                dataType = Double.class;</span>
+            }
+            else {
+<span class="nc" id="L76">                throw new IncorrectKormAnnotationException(&quot;Datatype not supported&quot;);</span>
+            }
+<span class="fc" id="L78">            field.setAccessible(true);</span>
+
+<span class="fc" id="L80">            Triplet&lt;String, Field, Class&gt; triplet = new Triplet&lt;String, Field, Class&gt;(column.name(), field, dataType);</span>
+<span class="fc" id="L81">            columnsArrayList.add(triplet);</span>
+
+<span class="fc bfc" id="L83" title="All 2 branches covered.">            if (column.isPrimaryKey())</span>
+<span class="fc" id="L84">                primaryKeysArrayList.add(triplet);</span>
+
+
+        }
+
+<span class="pc bpc" id="L89" title="1 of 2 branches missed.">        if (columnsArrayList.isEmpty())</span>
+<span class="nc" id="L90">            throw new IncorrectKormAnnotationException(&quot;No column annotation found&quot;);</span>
+
+<span class="fc" id="L92">        this.columns = columnsArrayList.toArray(new Triplet[0]);</span>
+<span class="fc" id="L93">        this.primaryKeys = primaryKeysArrayList.toArray(new Triplet[0]);</span>
+
+<span class="pc bpc" id="L95" title="1 of 2 branches missed.">        if (this.primaryKeys.length == 1) {</span>
+<span class="nc" id="L96">            cache = KormCache.getInstance().getCache(this.tableName, this.primaryKeys[0].getValue2(), clazz);</span>
+        }
+        else {
+<span class="fc" id="L99">            cache = null;</span>
+        }
+
+<span class="fc" id="L102">    }</span>
+
+    /**
+     * Create a table with respective table name and column names with type
+     * @return
+     * @throws SQLException
+     */
+    public int createTable() throws SQLException {
+
+<span class="fc" id="L111">        StringBuilder sqlBuilder = new StringBuilder();</span>
+<span class="fc" id="L112">        sqlBuilder.append(&quot;create table \&quot;&quot;);</span>
+<span class="fc" id="L113">        sqlBuilder.append(this.tableName);</span>
+<span class="fc" id="L114">        sqlBuilder.append(&quot;\&quot; (&quot;);</span>
+
+<span class="fc" id="L116">        String[] columnProperties = Arrays.stream(columns).map(triplet -&gt; {</span>
+<span class="fc" id="L117">            Class dataType = triplet.getValue2();</span>
+<span class="pc bpc" id="L118" title="1 of 4 branches missed.">            if (dataType.equals(Integer.TYPE) || dataType.equals(Integer.class)) {</span>
+<span class="fc" id="L119">                return &quot;\&quot;&quot; + triplet.getValue0() + &quot;\&quot; int&quot;;</span>
+            }
+<span class="fc bfc" id="L121" title="All 2 branches covered.">            else if (dataType.equals(String.class)) {</span>
+<span class="fc" id="L122">                return &quot;\&quot;&quot; + triplet.getValue0() + &quot;\&quot; text&quot;;</span>
+            }
+<span class="pc bpc" id="L124" title="2 of 4 branches missed.">            else if (dataType.equals(Double.TYPE) || dataType.equals(Double.class)) {</span>
+<span class="fc" id="L125">                return &quot;\&quot;&quot; + triplet.getValue0() + &quot;\&quot; double precision&quot;;</span>
+            }
+<span class="nc" id="L127">            return null;</span>
+<span class="fc" id="L128">        }).toArray(String[]::new);</span>
+
+<span class="fc" id="L130">        sqlBuilder.append(String.join(&quot;, &quot;, columnProperties));</span>
+
+<span class="pc bpc" id="L132" title="1 of 2 branches missed.">        if (primaryKeys.length &gt; 0) {</span>
+<span class="fc" id="L133">            columnProperties = Arrays.stream(primaryKeys).map(triplet -&gt; &quot;\&quot;&quot; + triplet.getValue0() + &quot;\&quot;&quot;).toArray(String[]::new);</span>
+<span class="fc" id="L134">            sqlBuilder.append(&quot;, primary key(&quot; + String.join(&quot;, &quot;, columnProperties) + &quot;)&quot;);</span>
+        }
+
+<span class="fc" id="L137">        sqlBuilder.append(&quot;);&quot;);</span>
+
+<span class="fc" id="L139">        Connection conn = kormConnectable.getConnection();</span>
+<span class="fc" id="L140">        Statement stmt = conn.createStatement();</span>
+<span class="fc" id="L141">        int status = stmt.executeUpdate(sqlBuilder.toString());</span>
+
+<span class="pc bpc" id="L143" title="1 of 2 branches missed.">        if (kormConnectable.getClass().equals(KormConnectionManager.class))</span>
+<span class="fc" id="L144">            conn.close();</span>
+
+<span class="fc" id="L146">        return status;</span>
+    }
+
+    /**
+     *
+     * @param obj Object to be stored
+     * @return rows of change
+     * @throws SQLException
+     * @throws IllegalAccessException
+     */
+    public int save(Object obj) throws SQLException, IllegalAccessException {
+<span class="fc" id="L157">        StringBuilder sqlBuilder = new StringBuilder();</span>
+<span class="fc" id="L158">        sqlBuilder.append(&quot;insert into \&quot;&quot; + this.tableName + &quot;\&quot; (&quot;);</span>
+<span class="fc" id="L159">        String[] temp = Arrays.stream(columns).map(triplet -&gt; &quot;\&quot;&quot; + triplet.getValue0() + &quot;\&quot;&quot;).toArray(String[]::new);</span>
+<span class="fc" id="L160">        sqlBuilder.append(String.join(&quot;, &quot;, temp));</span>
+<span class="fc" id="L161">        Arrays.fill(temp, &quot;?&quot;);</span>
+<span class="fc" id="L162">        sqlBuilder.append(&quot;) values (&quot; + String.join(&quot;, &quot;, temp) + &quot;);&quot;);</span>
+
+//        System.out.println(sqlBuilder.toString());
+
+<span class="fc" id="L166">        Connection conn = kormConnectable.getConnection();</span>
+<span class="fc" id="L167">        PreparedStatement pstmt = conn.prepareStatement(sqlBuilder.toString());</span>
+
+<span class="fc bfc" id="L169" title="All 2 branches covered.">        for (int i = 1; i &lt;= columns.length; i++) {</span>
+<span class="fc" id="L170">            Triplet&lt;String, Field, Class&gt; triplet = columns[i - 1];</span>
+<span class="fc" id="L171">            Class dataType = triplet.getValue2();</span>
+<span class="fc" id="L172">            pstmt.setObject(i, triplet.getValue1().get(obj));</span>
+        }
+//        System.out.println(pstmt.toString());
+<span class="fc" id="L175">        int status = pstmt.executeUpdate();</span>
+
+<span class="pc bpc" id="L177" title="1 of 2 branches missed.">        if (kormConnectable.getClass().equals(KormConnectionManager.class))</span>
+<span class="fc" id="L178">            conn.close();</span>
+
+<span class="fc" id="L180">        return status;</span>
+    }
+
+    /**
+     *
+     * @param map Map&lt;String, Object&gt; where string is the column names and object is the object to be stored, use null as a get all method
+     * @return Array of objects or null if none found
+     */
+    public Object[] get(Map&lt;String, Object&gt; map) throws SQLException, IllegalAccessException, InstantiationException {
+
+<span class="pc bpc" id="L190" title="5 of 8 branches missed.">        if (map != null &amp;&amp; cache != null &amp;&amp; map.size() == 1 &amp;&amp; map.containsKey(primaryKeys[0].getValue0())) {</span>
+<span class="nc" id="L191">            Object retObj = cache.get(map.get(primaryKeys[0].getValue0()));</span>
+<span class="nc" id="L192">            return new Object[]{retObj};</span>
+        }
+
+<span class="fc" id="L195">        StringBuilder sqlBuilder = new StringBuilder(&quot;select &quot;);</span>
+<span class="fc" id="L196">        String[] columnNames = Arrays.stream(columns).map(triplet -&gt; &quot;\&quot;&quot; + triplet.getValue0() + &quot;\&quot;&quot;).toArray(String[]::new);</span>
+
+<span class="fc" id="L198">        sqlBuilder.append(String.join(&quot;, &quot;, columnNames) + &quot; from \&quot;&quot; + this.tableName + &quot;\&quot;&quot;);</span>
+
+<span class="fc" id="L200">        Connection conn = kormConnectable.getConnection();</span>
+        PreparedStatement pstmt;
+
+<span class="pc bpc" id="L203" title="1 of 4 branches missed.">        if (map == null || map.isEmpty()) {</span>
+<span class="fc" id="L204">            pstmt = conn.prepareStatement(sqlBuilder.toString());</span>
+        }
+        else {
+<span class="fc" id="L207">            String[] temp = map.keySet().toArray(new String[0]);</span>
+<span class="fc" id="L208">            sqlBuilder.append(&quot; where &quot;);</span>
+<span class="fc" id="L209">            String[] temp2 = Arrays.stream(temp).map(s -&gt; &quot;(\&quot;&quot; + s + &quot;\&quot; = ?)&quot;).toArray(String[]::new);</span>
+<span class="fc" id="L210">            sqlBuilder.append(String.join(&quot; and &quot;, temp2));</span>
+
+<span class="fc" id="L212">            pstmt = conn.prepareStatement(sqlBuilder.toString());</span>
+
+<span class="fc bfc" id="L214" title="All 2 branches covered.">            for (int i = 0; i &lt; temp.length; i ++) {</span>
+<span class="fc" id="L215">                pstmt.setObject(i+1, map.get(temp[i]));</span>
+            }
+        }
+<span class="fc" id="L218">        ResultSet rs = pstmt.executeQuery();</span>
+
+<span class="fc" id="L220">        ArrayList objectArrayList = new ArrayList();</span>
+
+<span class="fc bfc" id="L222" title="All 2 branches covered.">        while (rs.next()) {</span>
+<span class="fc" id="L223">            Object obj = clazz.newInstance();</span>
+<span class="fc bfc" id="L224" title="All 2 branches covered.">            for (Triplet&lt;String, Field, Class&gt; triplet : columns) {</span>
+<span class="fc" id="L225">                triplet.getValue1().set(obj, rs.getObject(triplet.getValue0(), triplet.getValue2()));</span>
+            }
+<span class="fc" id="L227">            objectArrayList.add(obj);</span>
+<span class="fc" id="L228">        }</span>
+<span class="fc bfc" id="L229" title="All 2 branches covered.">        if (objectArrayList.isEmpty())</span>
+<span class="fc" id="L230">            return null;</span>
+
+<span class="pc bpc" id="L232" title="1 of 2 branches missed.">        if (kormConnectable.getClass().equals(KormConnectionManager.class))</span>
+<span class="fc" id="L233">            conn.close();</span>
+
+<span class="fc" id="L235">        return objectArrayList.toArray();</span>
+    }
+
+    /**
+     * This method delete row base on map condition
+     * @param map search condition where string is column name
+     * @return number of rows deleted
+     * @throws SQLException
+     */
+    public int delete(Map&lt;String, Object&gt; map) throws SQLException {
+
+<span class="pc bpc" id="L246" title="2 of 4 branches missed.">        if (map == null || map.isEmpty()) {</span>
+<span class="nc" id="L247">            throw new MapperException(&quot;Map is either null or empty, use deleteAll() if you want to delete everything&quot;);</span>
+        }
+<span class="fc" id="L249">        StringBuilder sqlBuilder = new StringBuilder(&quot;delete from \&quot;&quot; + this.tableName + &quot;\&quot; where &quot;);</span>
+
+<span class="fc" id="L251">        String[] keys = map.keySet().toArray(new String[0]);</span>
+
+<span class="fc" id="L253">        String[] temp = Arrays.stream(keys).map(s -&gt; &quot;(\&quot;&quot; + s + &quot;\&quot; = ?)&quot;).toArray(String[]::new);</span>
+<span class="fc" id="L254">        sqlBuilder.append(String.join(&quot; and &quot; , temp) + &quot;;&quot;);</span>
+
+<span class="fc" id="L256">        Connection conn = kormConnectable.getConnection();</span>
+<span class="fc" id="L257">        PreparedStatement pstmt = conn.prepareStatement(sqlBuilder.toString());</span>
+
+<span class="fc bfc" id="L259" title="All 2 branches covered.">        for (int i = 0; i &lt; keys.length; i++) {</span>
+<span class="fc" id="L260">            pstmt.setObject(i+1, map.get(keys[i]));</span>
+        }
+
+<span class="fc" id="L263">        int status = pstmt.executeUpdate();</span>
+
+<span class="fc bfc" id="L265" title="All 2 branches covered.">        if (kormConnectable.getClass().equals(KormConnectionManager.class))</span>
+<span class="fc" id="L266">            conn.close();</span>
+
+<span class="fc" id="L268">        return status;</span>
+    }
+
+    /** WARNING!!!!
+     * This method delete all rows in the table
+     * @return number of rows deleted
+     * @throws SQLException
+     */
+    public int deleteAll() throws SQLException {
+<span class="fc" id="L277">        Connection conn = kormConnectable.getConnection();</span>
+<span class="fc" id="L278">        PreparedStatement pstmt = conn.prepareStatement(&quot;delete from \&quot;&quot; + this.tableName + &quot;\&quot;;&quot;);</span>
+<span class="fc" id="L279">        return pstmt.executeUpdate();</span>
+    }
+
+    /**
+     * This values base on findMap based on condition in the updateMap
+     * @param findMap search condition of the query, if null or empty, will update all rows
+     * @param updateMap contain the updated value
+     * @return row affected
+     */
+    public int update(Map&lt;String, Object&gt; findMap, Map&lt;String, Object&gt; updateMap) throws SQLException {
+<span class="fc" id="L289">        StringBuilder sqlBuilder = new StringBuilder(&quot;update \&quot;&quot; + this.tableName + &quot;\&quot; set &quot;);</span>
+
+<span class="pc bpc" id="L291" title="2 of 4 branches missed.">        if (updateMap == null || updateMap.isEmpty())</span>
+<span class="nc" id="L292">            throw new MapperException(&quot;No value to update to&quot;);</span>
+
+<span class="fc" id="L294">        String[] setColumns = updateMap.keySet().toArray(new String[0]);</span>
+<span class="fc" id="L295">        sqlBuilder.append(String.join(&quot;, &quot;, Arrays.stream(setColumns).map(s -&gt; &quot;\&quot;&quot; + s + &quot;\&quot; = ?&quot;).toArray(String[]::new)));</span>
+
+<span class="pc bpc" id="L297" title="1 of 4 branches missed.">        if (findMap != null &amp;&amp; !findMap.isEmpty()) {</span>
+<span class="fc" id="L298">            String[] findColumns = findMap.keySet().toArray(new String[0]);</span>
+<span class="fc" id="L299">            sqlBuilder.append(&quot; where &quot;);</span>
+<span class="fc" id="L300">            sqlBuilder.append(String.join(&quot; and &quot;, Arrays.stream(findColumns).map(s -&gt; &quot;(\&quot;&quot; + s + &quot;\&quot; = ?)&quot;).toArray(String[]::new)));</span>
+        }
+
+
+<span class="fc" id="L304">        Connection conn = kormConnectable.getConnection();</span>
+<span class="fc" id="L305">        PreparedStatement pstmt = conn.prepareStatement(sqlBuilder.toString());</span>
+
+<span class="fc" id="L307">        int i = 1;</span>
+
+<span class="fc bfc" id="L309" title="All 2 branches covered.">        for (String value : setColumns) {</span>
+<span class="fc" id="L310">            pstmt.setObject(i++, updateMap.get(value));</span>
+        }
+
+<span class="pc bpc" id="L313" title="1 of 4 branches missed.">        if (findMap != null &amp;&amp; !findMap.isEmpty()) {</span>
+<span class="fc" id="L314">            String[] findColumns = findMap.keySet().toArray(new String[0]);</span>
+<span class="fc bfc" id="L315" title="All 2 branches covered.">            for (String value : findColumns) {</span>
+<span class="fc" id="L316">                pstmt.setObject(i++, findMap.get(value));</span>
+            }
+        }
+<span class="fc" id="L319">        int status = pstmt.executeUpdate();</span>
+
+<span class="fc bfc" id="L321" title="All 2 branches covered.">        if (kormConnectable.getClass().equals(KormConnectionManager.class))</span>
+<span class="fc" id="L322">            conn.close();</span>
+
+<span class="fc" id="L324">        return status;</span>
+    }
+
+    /**
+     * Warning!!! This will drop your table!!!
+     * @return should be 0 if everything ran fine.
+     */
+    public int dropTable() throws SQLException {
+<span class="fc" id="L332">        String sql = &quot;drop table \&quot;&quot;+ this.tableName +&quot;\&quot;;&quot;;</span>
+<span class="fc" id="L333">        Connection conn = kormConnectable.getConnection();</span>
+<span class="fc" id="L334">        int status = conn.createStatement().executeUpdate(sql);</span>
+
+<span class="fc bfc" id="L336" title="All 2 branches covered.">        if (kormConnectable.getClass().equals(KormConnectionManager.class))</span>
+<span class="fc" id="L337">            conn.close();</span>
+
+<span class="fc" id="L339">        return status;</span>
+    }
+
+    @Override
+    public String toString() {
+<span class="nc" id="L344">        return &quot;KormObjectMapper{&quot; +</span>
+                &quot;clazz=&quot; + clazz +
+                &quot;, tableName='&quot; + tableName + '\'' +
+<span class="nc" id="L347">                &quot;, columns=&quot; + Arrays.toString(columns) +</span>
+<span class="nc" id="L348">                &quot;, primaryKeys=&quot; + Arrays.toString(primaryKeys) +</span>
+                &quot;, kormConnectable=&quot; + kormConnectable +
+                '}';
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>
