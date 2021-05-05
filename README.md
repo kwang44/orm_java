@@ -1,7 +1,7 @@
 # Kevin's Object Relational Mapping Program
 
 ## Project Description
-This is a Object Relational Mapping project
+This is a Object Relational Mapping project.
 By using the @Column and @Table annotations, it's possible to map your Java objects to an PostgreSQL database
 
 ## Technologies Used
