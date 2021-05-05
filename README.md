@@ -11,6 +11,9 @@ This is a Object Relational Mapping project
 * JDBC
 * Postgres
 * SQL
+* HikariCP
+
+
 
 To-do list:
 * Improve Stability
